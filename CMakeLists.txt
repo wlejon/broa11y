@@ -7,14 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Memory-aware defaults
-set(BRO_COMPILE_JOBS "4" CACHE STRING "Ninja compile concurrency limit")
-set(BRO_LINK_JOBS "2" CACHE STRING "Ninja link concurrency limit")
-set_property(GLOBAL PROPERTY JOB_POOLS
-    compile_pool=${BRO_COMPILE_JOBS}
-    link_pool=${BRO_LINK_JOBS}
-)
-set(CMAKE_JOB_POOL_COMPILE compile_pool)
-set(CMAKE_JOB_POOL_LINK link_pool)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(BRO_COMPILE_JOBS "4" CACHE STRING "Ninja compile concurrency limit")
+    set(BRO_LINK_JOBS "2" CACHE STRING "Ninja link concurrency limit")
+    set_property(GLOBAL PROPERTY JOB_POOLS
+        compile_pool=${BRO_COMPILE_JOBS}
+        link_pool=${BRO_LINK_JOBS}
+    )
+    set(CMAKE_JOB_POOL_COMPILE compile_pool)
+    set(CMAKE_JOB_POOL_LINK link_pool)
+endif()
 
 if(MSVC)
     add_compile_options(
