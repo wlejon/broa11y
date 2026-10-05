@@ -11,7 +11,7 @@ namespace broa11y::atspi {
 
 class DbusConnection {
 public:
-    explicit DbusConnection(bool headless_mock = false);
+    DbusConnection();
     ~DbusConnection();
 
     DbusConnection(const DbusConnection&) = delete;
@@ -32,8 +32,7 @@ public:
     void clear_emitted_signals() { emitted_signals_.clear(); }
 
 private:
-    bool headless_mock_ = false;
-    std::string unique_name_ = ":1.100";
+    std::string unique_name_;
     bool connected_ = false;
     std::vector<Signal> emitted_signals_;
     struct RealConnectionData;

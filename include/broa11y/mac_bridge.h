@@ -11,7 +11,6 @@ namespace broa11y {
 
 struct MacBridgeConfig {
     std::string app_name = "bro";
-    bool mock_mode = true;
 };
 
 class MacBridge : public Bridge {

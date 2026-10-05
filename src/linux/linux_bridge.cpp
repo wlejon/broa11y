@@ -11,7 +11,7 @@ class LinuxBridge::Impl {
 public:
     explicit Impl(LinuxBridgeConfig config)
         : config_(std::move(config)),
-          conn_(config_.headless_mock) {}
+          conn_() {}
 
     ~Impl() {
         shutdown();
@@ -62,19 +62,19 @@ public:
             }
             case EventType::PropertyChanged: {
                 if (const auto* p = event.get_if<PropertyChangedPayload>()) {
-                    std::string member = "PropertyChange";
+                    std::string detail = "AccessibleName";
                     if (p->property_name == "name") {
-                        member = "PropertyChange:AccessibleName";
+                        detail = "AccessibleName";
                     } else if (p->property_name == "description") {
-                        member = "PropertyChange:AccessibleDescription";
+                        detail = "AccessibleDescription";
                     } else if (p->property_name == "role") {
-                        member = "PropertyChange:AccessibleRole";
+                        detail = "AccessibleRole";
                     }
                     atspi::Signal sig{
                         .interface_name = std::string(atspi::kDbusInterfaceEventObject),
-                        .member = member,
+                        .member = "PropertyChange",
                         .path = path,
-                        .detail = p->new_value,
+                        .detail = detail,
                         .detail1 = 0,
                         .detail2 = 0
                     };
@@ -177,7 +177,11 @@ public:
     [[nodiscard]] std::vector<std::string> get_emitted_signal_names() const {
         std::vector<std::string> names;
         for (const auto& s : conn_.emitted_signals()) {
-            names.push_back(s.interface_name + ":" + s.member);
+            std::string n = s.interface_name + ":" + s.member;
+            if (!s.detail.empty()) {
+                n += ":" + s.detail;
+            }
+            names.push_back(n);
         }
         return names;
     }

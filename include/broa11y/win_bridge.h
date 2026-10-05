@@ -11,7 +11,6 @@ namespace broa11y {
 
 struct WinBridgeConfig {
     std::string app_name = "bro";
-    bool mock_mode = true;
 };
 
 class WinBridge : public Bridge {

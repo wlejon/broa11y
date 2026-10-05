@@ -38,27 +38,27 @@ struct TextSlice {
 };
 
 struct Signal {
-    std::string interface_name;
-    std::string member;
-    std::string path;
-    std::string detail;
+    std::string interface_name{};
+    std::string member{};
+    std::string path{};
+    std::string detail{};
     int32_t detail1 = 0;
     int32_t detail2 = 0;
-    std::string any_data;
+    std::string any_data{};
 };
 
 struct MethodCall {
-    std::string path;
-    std::string interface_name;
-    std::string member;
-    std::vector<std::string> args;
+    std::string path{};
+    std::string interface_name{};
+    std::string member{};
+    std::vector<std::string> args{};
 };
 
 struct MethodReply {
     bool success = true;
-    std::string signature;
-    std::vector<std::string> values;
-    std::string error_message;
+    std::string signature{};
+    std::vector<std::string> values{};
+    std::string error_message{};
 };
 
 } // namespace broa11y::atspi

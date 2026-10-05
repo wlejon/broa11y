@@ -16,9 +16,8 @@ struct DbusConnection::RealConnectionData {
 #endif
 };
 
-DbusConnection::DbusConnection(bool headless_mock)
-    : headless_mock_(headless_mock),
-      real_conn_(std::make_unique<RealConnectionData>()) {}
+DbusConnection::DbusConnection()
+    : real_conn_(std::make_unique<RealConnectionData>()) {}
 
 DbusConnection::~DbusConnection() {
     disconnect();
@@ -28,12 +27,6 @@ DbusConnection::DbusConnection(DbusConnection&&) noexcept = default;
 DbusConnection& DbusConnection::operator=(DbusConnection&&) noexcept = default;
 
 bool DbusConnection::connect() {
-    if (headless_mock_) {
-        connected_ = true;
-        unique_name_ = ":1.100";
-        return true;
-    }
-
 #if defined(BROA11Y_HAVE_DBUS)
     const char* a11y_addr = std::getenv("AT_SPI_BUS_ADDRESS");
     DBusError err;
@@ -66,10 +59,9 @@ bool DbusConnection::connect() {
     dbus_error_free(&err);
 #endif
 
-    // Fallback to in-memory mode if DBus daemon is not running
-    connected_ = true;
-    unique_name_ = ":1.100";
-    return true;
+    connected_ = false;
+    unique_name_.clear();
+    return false;
 }
 
 void DbusConnection::disconnect() {

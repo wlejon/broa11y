@@ -12,7 +12,6 @@ namespace broa11y {
 struct LinuxBridgeConfig {
     std::string app_name = "bro";
     std::string toolkit_name = "broa11y";
-    bool headless_mock = false;
 };
 
 class LinuxBridge : public Bridge {
