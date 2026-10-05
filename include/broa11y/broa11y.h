@@ -1,0 +1,15 @@
+#pragma once
+
+#include "broa11y/action.h"
+#include "broa11y/bridge.h"
+#include "broa11y/events.h"
+#include "broa11y/linux_bridge.h"
+#include "broa11y/mac_bridge.h"
+#include "broa11y/node.h"
+#include "broa11y/role.h"
+#include "broa11y/state.h"
+#include "broa11y/terminal.h"
+#include "broa11y/tree.h"
+#include "broa11y/types.h"
+#include "broa11y/version.h"
+#include "broa11y/win_bridge.h"
