@@ -55,6 +55,14 @@ std::string find_launcher() {
     return {};
 }
 
+std::string find_registryd() {
+    for (const char* p : {"/usr/libexec/at-spi2-registryd", "/usr/lib/at-spi2-registryd",
+                          "/usr/lib/at-spi2-core/at-spi2-registryd", "/usr/libexec/at-spi2/at-spi2-registryd"}) {
+        if (executable(p)) return p;
+    }
+    return {};
+}
+
 pid_t spawn(const std::vector<std::string>& argv) {
     std::vector<char*> args;
     for (const auto& a : argv) args.push_back(const_cast<char*>(a.c_str()));
@@ -141,6 +149,12 @@ int main() {
     pid_t launcher_pid = spawn({launcher, "--launch-immediately"});
     REQUIRE(launcher_pid > 0);
 
+    const std::string registryd = find_registryd();
+    pid_t registry_pid = -1;
+    if (!registryd.empty()) {
+        registry_pid = spawn({registryd});
+    }
+
     Node* root = tree.create_node_with_role(Role::Window, 1);
     root->set_name("broa11y test window");
     root->set_bounds({0, 0, 400, 300});
@@ -217,6 +231,7 @@ int main() {
     }
     if (!up) {
         std::printf("initialize failed: %s\n", why.c_str());
+        if (registry_pid > 0) stop(registry_pid);
         stop(launcher_pid);
         REQUIRE(false);
     }
@@ -259,6 +274,7 @@ int main() {
 
     bridge.shutdown();
     CHECK(!bridge.is_active());
+    if (registry_pid > 0) stop(registry_pid);
     stop(launcher_pid);
     return bstest::finish(kName);
 }
