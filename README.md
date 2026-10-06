@@ -1,130 +1,124 @@
 # broa11y
 
-`broa11y` is a standalone, lightweight modern C++20 accessibility library with an accessibility tree model and platform bridges (AT-SPI 2 on Linux, UI Automation on Windows, NSAccessibility on macOS), designed to make GUI toolkits, widgets, and terminal emulators (`broterm` / `bropty`) accessible to screen readers and assistive technologies.
+[![CI](https://github.com/wlejon/broa11y/actions/workflows/ci.yml/badge.svg)](https://github.com/wlejon/broa11y/actions/workflows/ci.yml)
 
----
+Accessibility for applications built on the [bro](https://github.com/wlejon/bro)
+runtime: an accessibility tree the application keeps current, and a bridge per
+platform that serves it to screen readers: AT-SPI 2 on Linux (Orca), UI
+Automation on Windows (Narrator, NVDA, JAWS), NSAccessibility on macOS
+(VoiceOver). Terminal emulators get a text model of their grid. A standalone
+C++20 library: no dependency on bro or bronze, no JS binding, its own CMake
+and ctest.
 
-## Features
+## Model
 
-1. **Core Accessibility Tree Model**
-   - **Hierarchical Node Tree**: Strongly typed `NodeId` identifiers, parent/children pointers, tree navigation (`parent`, `first_child`, `last_child`, `next_sibling`, `previous_sibling`, `child_at`, `index_in_parent`).
-   - **Comprehensive Roles**: Standard `Role` enum including `Application`, `Window`, `Dialog`, `Alert`, `Button`, `CheckBox`, `RadioButton`, `TextInput`, `Terminal`, `Label`, `Link`, `List`, `ListItem`, `Menu`, `MenuItem`, `MenuBar`, `Slider`, `ProgressBar`, `ScrollBar`, `Tree`, `Table`, `Panel`, `Tab`, `TabList`, and more.
-   - **Bitset States**: `StateSet` bitset managing accessibility states (`Focused`, `Focusable`, `Selected`, `Selectable`, `Expanded`, `Collapsed`, `Disabled`, `ReadOnly`, `Checked`, `Busy`, `Modal`, `MultiSelectable`, `Visible`, `Showing`, `Sensitive`, `MultiLine`, etc.).
-   - **Properties & Attributes**: Accessible names, descriptions, bounding rectangles (`RectF`), numeric value ranges (`ValueRange`), text content, caret position, and selection range (`TextRange`).
-   - **Actions**: Standard action descriptors (`activate`, `focus`, `set_value`, `scroll`, `show_menu`, `dismiss`) and custom actions with flexible `ActionHandler` callbacks.
-   - **Events & Mutations**: Dispatches `NodeAdded`, `NodeRemoved`, `BoundsChanged`, `PropertyChanged`, `FocusChanged`, `CaretMoved`, `TextSelectionChanged`, `StateChanged`, `ValueChanged`, `ChildrenChanged`, `Announcement`.
-   - **Transaction & Mutation Batching**: RAII transaction model (`TreeTransaction`) supporting atomic commit and rollback with event batching.
+The application owns a `Tree` of `Node`s: role, name, description, states,
+bounds, an optional value range, text with caret and selection, attributes,
+relations and named actions. Every mutation emits an `Event` (property, state,
+bounds, value, caret, selection, children, focus, announcement); a
+`TreeTransaction` batches a set of changes into one burst of events, or rolls
+them back (removed nodes, handlers included, come back).
 
-2. **Terminal Accessibility**
-   - Dedicated support for `Role::Terminal` tailored for terminal emulators (e.g. `bropty` / `broterm`).
-   - Maps 2D character grids and lines into accessible linear text, supporting soft line wraps vs hard newlines.
-   - Multi-granularity navigation: `Character`, `Word`, `Line`, `Paragraph`, `Document` boundaries.
-   - Cursor tracking: maps `(row, col)` coordinates to linear text caret offsets with automatic `CaretMoved` event emission.
-   - Selection tracking: maps terminal visual selections to accessible `TextRange` selections.
-   - Screen reader announcements: terminal bell (`\a`) announcements, command status notices, and live region speech prompts.
-
-3. **Platform Bridges**
-   - **Linux Bridge (`LinuxBridge`)**:
-     - AT-SPI 2 over D-Bus (`org.a11y.Bus` / `org.a11y.atspi`).
-     - Exposes AT-SPI interfaces: `Accessible`, `Component`, `Action`, `Text`, `EditableText`, `Value`.
-     - Emits standard AT-SPI signals: `StateChanged`, `PropertyChange:AccessibleName`, `PropertyChange:AccessibleDescription`, `TextCaretMoved`, `TextSelectionChanged`, `ChildrenChanged`, `Window:Activate`, `Announcement`.
-     - Runs with live `libdbus-1` connections or deterministic mock dispatch for headless testing.
-   - **Windows Bridge (`WinBridge`)**:
-     - Microsoft UI Automation (UIA) bridge with provider architecture (`UiaNodeProvider`).
-     - Implements standard control patterns: `Invoke`, `Toggle`, `Value`, `RangeValue`, `Text`, `Selection`.
-     - Translates tree mutations into UIA automation property and structure change events.
-   - **macOS Bridge (`MacBridge`)**:
-     - Apple NSAccessibility protocol bridge (`MacAccessibleElement`).
-     - Implements accessibility attributes (`AXRole`, `AXTitle`, `AXValue`, `AXPosition`, `AXSize`, etc.), parameterized attributes (`AXStringForRange`), and actions (`AXPress`, `AXIncrement`).
-     - Emits standard NSAccessibility notifications (`AXFocusedUIElementChanged`, `AXValueChanged`, `AXTitleChanged`, `AXAnnouncementRequested`).
-
----
-
-## Directory Structure
-
-```text
-broa11y/
-├── include/broa11y/          # Public headers
-│   ├── types.h               # Core geometry, IDs, enums
-│   ├── role.h                # Accessible roles & mappings
-│   ├── state.h               # StateSet bitset & state enums
-│   ├── action.h              # Action descriptors & handlers
-│   ├── events.h              # Tree events & payloads
-│   ├── node.h                # Node & NodeData representation
-│   ├── tree.h                # Tree model & TreeTransaction
-│   ├── terminal.h            # TerminalAccessibility model
-│   ├── bridge.h              # Platform bridge interface & factory
-│   ├── linux_bridge.h        # AT-SPI 2 Linux bridge
-│   ├── win_bridge.h          # UI Automation Windows bridge
-│   ├── mac_bridge.h          # NSAccessibility macOS bridge
-│   ├── version.h             # Library version
-│   └── broa11y.h             # Umbrella header
-├── src/
-│   ├── common/               # Core model implementation
-│   ├── linux/                # AT-SPI 2 D-Bus wire protocol & adaptor
-│   ├── win/                  # UI Automation providers & bridge
-│   └── mac/                  # NSAccessibility elements & bridge
-└── tests/                    # CTest test suite
-```
-
----
-
-## Building and Testing
-
-`broa11y` uses CMake (>= 3.24) and Ninja.
-
-### Build:
-```bash
-cmake -B build -G Ninja
-cmake --build build -j 2
-```
-
-### Run Tests:
-```bash
-ctest --test-dir build --output-on-failure
-```
-
----
-
-## Quick Example
+The bridges never change the model themselves. A screen reader's request (press
+a button, set a value, move the caret, take focus) reaches the node's
+`ActionHandler` as an action; the application does what it means and updates
+the tree, and the tree's events become the platform's notifications.
 
 ```cpp
-#include <broa11y/broa11y.h>
-#include <iostream>
+broa11y::Tree tree;
+auto* window = tree.create_node_with_role(broa11y::Role::Window, 1);
+window->set_name("Editor");
+window->set_bounds({0, 0, 800, 600});
 
-int main() {
-    broa11y::Tree tree;
+auto* run = tree.create_node_with_role(broa11y::Role::Button, 2);
+tree.reparent_node(2, 1);
+run->set_name("Run");
+run->set_bounds({10, 10, 80, 28});
+run->add_action({.name = std::string(broa11y::kActionActivate), .description = "Runs", .key_binding = "F5"});
+run->set_action_handler([&](broa11y::NodeId, std::string_view action, const broa11y::ActionParams&) {
+    if (action != broa11y::kActionActivate) return false;
+    start_run();                                  // the application's own code
+    tree.announce("Run started");
+    return true;
+});
 
-    // 1. Create a root window
-    auto* window = tree.create_node_with_role(broa11y::Role::Window, 1);
-    window->set_name("My Terminal App");
-    window->set_bounds({0, 0, 1024, 768});
-
-    // 2. Attach terminal accessibility
-    auto* term_node = tree.create_node(2);
-    tree.reparent_node(2, 1);
-
-    broa11y::TerminalAccessibility term;
-    term.attach_to_node(&tree, 2);
-    term.append_line("user@machine:~$ echo Hello", false);
-    term.append_line("Hello", false);
-    term.set_cursor(1, 5);
-
-    // 3. Connect platform bridge
-    auto bridge = broa11y::create_platform_bridge(&tree);
-
-    // 4. Focus terminal
-    tree.set_focus(2);
-
-    // 5. Announce screen reader alert
-    term.announce("Output received", broa11y::AnnouncementPriority::Polite);
-
-    return 0;
-}
+broa11y::LinuxBridge bridge({.app_name = "editor"});   // WinBridge / MacBridge elsewhere
+if (!bridge.initialize(&tree)) log("accessibility off: " + bridge.last_error());
+// UI loop: poll bridge.poll_fd(), then bridge.process_events()
 ```
 
----
+Text is UTF-8 and the model's caret, selection and terminal offsets are UTF-8
+byte offsets. Each bridge converts: AT-SPI counts characters, UI Automation and
+NSAccessibility count UTF-16 units. Character, word, line and paragraph
+boundaries are computed once (`src/common/text_util`) and shared, so every
+platform reports the same units. `TerminalAccessibility` turns a grid of rows
+(soft-wrapped or not) into one text node with cursor and selection; columns
+count characters.
+
+```
+include/broa11y/
+  types.h, role.h, state.h, action.h, events.h   the vocabulary
+  node.h, tree.h        Node, Tree, TreeTransaction
+  terminal.h            TerminalAccessibility (grid -> text node)
+  bridge.h              Bridge: initialize / shutdown / process_events / last_error
+  linux_bridge.h, win_bridge.h, mac_bridge.h   one per platform
+  broa11y.h             umbrella header (includes this platform's bridge)
+```
+
+## Platforms
+
+Each bridge compiles only on its own platform. When the service it needs is
+not there, `initialize()` returns false and `last_error()` says why.
+
+| | Linux | Windows | macOS |
+|---|---|---|---|
+| API | AT-SPI 2 over D-Bus (sd-bus, libsystemd) | UI Automation server-side providers | NSAccessibility (`NSAccessibilityElement`) |
+| Needs | the accessibility bus: `AT_SPI_BUS_ADDRESS`, or `org.a11y.Bus` on the session bus (at-spi2-core) | `WinBridgeConfig::hwnd`; `initialize()` on the window's thread, COM single-threaded apartment | `MacBridgeConfig::ns_view`; main thread; the view forwards `accessibilityChildren`, `accessibilityHitTest:` and `accessibilityFocusedUIElement` to the bridge (see `mac_bridge.h`) |
+| Where requests are answered | `process_events()`, on the caller's thread (`poll_fd()` for the loop) | the window's message loop | the main run loop |
+| Exposes | Accessible, Application, Component, Action, Text, EditableText, Value, Cache; registers with the registry by `Socket.Embed` | Invoke, Toggle, Value, RangeValue, Text (with text ranges) patterns; fragment navigation, hit testing, focus | roles, labels, values, frames, children, press / increment / decrement, focus, text ranges, line queries |
+| Events | `org.a11y.atspi.Event.Object` (PropertyChange, StateChanged, ChildrenChanged, TextChanged, TextCaretMoved, TextSelectionChanged, BoundsChanged, Announcement), `Event.Window` | property-changed, focus, structure-changed, text, invoke, notification (`UiaRaiseNotificationEvent`) | `NSAccessibilityPostNotification` (focus, value, title, selected text, layout, created / destroyed, announcement) |
+
+Node bounds are window-relative (client-area pixels on Windows, view points
+with a top-left origin on macOS); Linux takes the window's screen origin from
+`LinuxBridgeConfig::window_origin` when the platform has global coordinates.
+
+Not modelled: per-glyph geometry (a text range's rectangle is its node's, and a
+point inside text maps to no offset), text attributes, sentence boundaries
+(answered as lines), more than one selection, and clipboard operations
+(EditableText Copy/Cut/Paste are refused; the application owns its clipboard).
+
+## Building
+
+```bash
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release        # Windows: cmake -B build
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+Requirements: CMake 3.24+, a C++20 compiler (MSVC 2022, GCC 12+, Clang 15+,
+Apple Clang), on Linux `libsystemd` (sd-bus, >= 246) with pkg-config. The
+Linux bridge test also uses `dbus-daemon`, at-spi2-core's
+`at-spi-bus-launcher` and registry, and libatspi's development files
+(`atspi-2`); without them it skips and says which is missing. Windows links
+`UIAutomationCore`, macOS `AppKit`. There are no sibling repos to fetch.
+
+Add it to another CMake project with `add_subdirectory(broa11y)` and link
+`broa11y::broa11y`.
+
+## Tests
+
+Real ctests: no `assert()`, failures count in every configuration, exit 77 is
+a skip with the reason printed.
+
+| Test | What it checks against |
+|---|---|
+| test_tree, test_transaction, test_actions | the model: navigation, hit testing, focus, cycle-free reparenting, commit / rollback (a removed subtree comes back), actions only through handlers |
+| test_text_index | UTF-8 / character / UTF-16 conversions, invalid input, unit boundaries |
+| test_terminal_a11y | the grid as text, cursor and selection mapping, non-ASCII rows |
+| test_win_uia (Windows) | a hidden window serves the tree; a second process using the UI Automation client API (`IUIAutomation`) reads it, drives Invoke / Toggle / Value / RangeValue / Text / focus, and waits for the property, structure and notification events |
+| test_linux_atspi (Linux) | a private session bus with the real `at-spi-bus-launcher` and registry; a second process built on libatspi (Orca's library) finds the application through the desktop, reads the tree, drives actions, values, text, selection and focus, and waits for the events |
+| test_mac_bridge (macOS) | a real `NSWindow` and view; AppKit's window traversal must reach the tree, then the elements are read and driven through the NSAccessibility protocol. A cross-process `AXUIElement` client needs the Accessibility permission CI does not grant, so posted notifications are not observed |
 
 ## License
 
-MIT License (see [LICENSE](LICENSE)).
+MIT, see [LICENSE](LICENSE).

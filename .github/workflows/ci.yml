@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# broa11y has no siblings: every job builds this repo alone.
+#
+# Each bridge is checked by the platform's own client: on Linux a libatspi
+# process against the real at-spi-bus-launcher and registry on a private
+# session bus, on Windows a second process using the UI Automation client
+# API, on macOS AppKit itself in-process. Every Test step ends with the "did
+# not run" list and each skipped test's own reason (.github/ci/ctest.sh):
+# that is what a job really covered.
+env:
+  LINUX_PACKAGES: >-
+    ninja-build pkg-config libsystemd-dev dbus-daemon at-spi2-core libatspi2.0-dev
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-gcc,          os: ubuntu-24.04, cc: gcc,   cxx: g++,     config: Release }
+          - { name: linux-clang,        os: ubuntu-24.04, cc: clang, cxx: clang++, config: Release }
+          - { name: windows-msvc,       os: windows-2022,                          config: Release }
+          # Debug CRT: iterator debugging and checked COM/heap use.
+          - { name: windows-msvc-debug, os: windows-2022,                          config: Debug }
+          - { name: macos-arm64,        os: macos-15,                              config: Release }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends $LINUX_PACKAGES
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -B build
+          else
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          fi
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} --parallel 4
+
+      - name: Test
+        shell: bash
+        run: .github/ci/ctest.sh --test-dir build -C ${{ matrix.config }}
+
+  # ── Coverage ──────────────────────────────────────────────────────────────
+  #
+  # Linux: the model plus the AT-SPI bridge, driven by the libatspi client.
+  # Debug (-O0). The UIA and NSAccessibility bridges are exercised by the test
+  # matrix, not measured.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: broa11y
+
+      - name: Install packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcovr $LINUX_PACKAGES
+
+      - name: Configure (instrumented)
+        run: |
+          cmake -S broa11y -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBROA11Y_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Test
+        run: broa11y/.github/ci/ctest.sh --test-dir build
+
+      # pipefail: piping gcovr into tee otherwise hands the step tee's exit
+      # status, so a gcovr crash produces no report and the job still goes green.
+      - name: Report
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p coverage-html
+          gcovr --root . \
+            --filter 'broa11y/src/' --filter 'broa11y/include/broa11y/' \
+            --exclude-unreachable-branches \
+            --print-summary \
+            --html-details coverage-html/index.html \
+            | tee coverage-summary.txt
+          test -s coverage-html/index.html
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '## Coverage — `src/` + `include/broa11y/`'
+            echo
+            echo 'Linux (model, terminal text, AT-SPI bridge); the UIA and NSAccessibility bridges are exercised by the test matrix, not measured.'
+            echo
+            echo '```'
+            cat coverage-summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: coverage-html/
+          retention-days: 14
