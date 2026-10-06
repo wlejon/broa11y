@@ -354,9 +354,14 @@ int main() {
 
     // 17. GC Stress test: allocating hundreds of nodes, attributes, actions, and ticking
     std::cout << "Running GC stress test loop..." << std::endl;
+    // Under BRONZE_GC_STRESS every allocation already collects, so a few
+    // nodes exercise exactly what 150 do; at -O0 (the Coverage job) each one
+    // costs ~2.5 s there, and 150 of them overran the test's timeout.
+    evalScript(std::string("globalThis.__stressEnd = ") +
+               (std::getenv("BRONZE_GC_STRESS") ? "1010" : "1150") + ";");
     CHECK_JS_OK(
         "(() => {\n"
-        "  for (let i = 1000; i < 1150; ++i) {\n"
+        "  for (let i = 1000; i < globalThis.__stressEnd; ++i) {\n"
         "    const n = bro.a11y.createNode({\n"
         "      id: i,\n"
         "      role: 'button',\n"
@@ -373,7 +378,7 @@ int main() {
         "      bro.a11y.tick();\n"
         "    }\n"
         "  }\n"
-        "  for (let i = 1000; i < 1150; ++i) {\n"
+        "  for (let i = 1000; i < globalThis.__stressEnd; ++i) {\n"
         "    const n = bro.a11y.getNode(i);\n"
         "    if (!n || n.name !== 'Stress Node ' + i || n.attributes.index !== String(i)) {\n"
         "      return false;\n"
