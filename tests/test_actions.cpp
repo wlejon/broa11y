@@ -22,9 +22,9 @@ int main() {
     CHECK_EQ(button->actions()[0].name, broa11y::kActionActivate);
     CHECK_EQ(button->actions()[1].name, "custom_greet");
 
-    // Test default perform_action without handler (returns true if action exists)
-    CHECK(button->perform_action(broa11y::kActionActivate));
-    CHECK(button->perform_action("custom_greet"));
+    // Without a handler nothing performs an action, listed or not.
+    CHECK(!button->perform_action(broa11y::kActionActivate));
+    CHECK(!button->perform_action("custom_greet"));
     CHECK(!button->perform_action("non_existent_action"));
 
     // Test with ActionHandler
@@ -62,5 +62,5 @@ int main() {
 
     CHECK(!button->perform_action("unknown"));
 
-    return check::finish("test_actions");
+    return bstest::finish("test_actions");
 }

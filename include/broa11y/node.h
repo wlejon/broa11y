@@ -24,7 +24,7 @@ struct NodeData {
     std::string name;
     std::string description;
     std::optional<ValueRange> value;
-    std::string text;
+    std::string text;  // UTF-8; caret_offset and selection are byte offsets into it
     int32_t caret_offset = -1;
     TextRange selection{};
     std::unordered_map<std::string, std::string> attributes;

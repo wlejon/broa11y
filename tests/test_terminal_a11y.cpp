@@ -107,6 +107,48 @@ int main() {
     std::string next_word = term.get_text_after_offset(2, broa11y::TextGranularity::Word, &s, &e);
     CHECK(!next_word.empty());
 
+    // 5b. Non-ASCII rows: columns count characters, offsets stay UTF-8 bytes,
+    // and no unit splits a multi-byte character.
+    {
+        auto* wide_node = tree.create_node(11);
+        REQUIRE(wide_node != nullptr);
+        broa11y::TerminalAccessibility wide;
+        wide.attach_to_node(&tree, 11);
+        wide.append_line("h\xC3\xA9llo w\xC3\xB6rld \xE2\x9C\x93");  // héllo wörld ✓
+        wide.append_line("\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E text");  // 日本語 text
+
+        wide.set_cursor(0, 7);  // the 'ö'
+        CHECK_EQ(wide.cursor_offset(), 8);
+        CHECK_EQ(wide_node->caret_offset(), 8);
+        CHECK(wide.offset_to_pos(8) == std::make_pair(0, 7));
+        CHECK(wide.offset_to_pos(9) == std::make_pair(0, 7));  // inside 'ö' rounds down
+
+        CHECK_EQ(wide.get_text_at_offset(8, broa11y::TextGranularity::Character, &s, &e),
+                 "\xC3\xB6");
+        CHECK_EQ(s, 8);
+        CHECK_EQ(e, 10);
+        CHECK_EQ(wide.get_text_at_offset(8, broa11y::TextGranularity::Word, &s, &e),
+                 "w\xC3\xB6rld");
+        CHECK_EQ(s, 7);
+        CHECK_EQ(e, 13);
+
+        CHECK_EQ(wide.pos_to_offset(1, 0), 18);
+        CHECK_EQ(wide.pos_to_offset(1, 3), 27);
+        CHECK_EQ(wide.pos_to_offset(1, 99), 32);  // past the row's end clamps to it
+        CHECK_EQ(wide.get_text_at_offset(18, broa11y::TextGranularity::Word, &s, &e),
+                 "\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E");
+        CHECK_EQ(e, 27);
+        CHECK_EQ(wide.get_text_after_offset(18, broa11y::TextGranularity::Word, &s, &e), " ");
+        CHECK_EQ(wide.get_text_before_offset(18, broa11y::TextGranularity::Line, &s, &e),
+                 "h\xC3\xA9llo w\xC3\xB6rld \xE2\x9C\x93\n");
+        CHECK_EQ(s, 0);
+        CHECK_EQ(e, 18);
+        CHECK_EQ(wide.character_count(), 23);
+
+        wide.set_selection(0, 6, 0, 11);
+        CHECK_EQ(wide.selected_text(), "w\xC3\xB6rld");
+    }
+
     // 6. Announcements & Bell
     term.ring_bell();
     CHECK_EQ(announcements, 1);
@@ -116,5 +158,5 @@ int main() {
     CHECK_EQ(announcements, 2);
     CHECK_EQ(last_announcement, "Process exited with code 0");
 
-    return check::finish("test_terminal_a11y");
+    return bstest::finish("test_terminal_a11y");
 }

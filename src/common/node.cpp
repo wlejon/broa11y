@@ -156,13 +156,10 @@ void Node::add_action(ActionDescriptor action) {
 }
 
 bool Node::perform_action(std::string_view action_name, const ActionParams& params) {
+    // Without a handler nothing can carry the action out, so it did not
+    // happen: a listed action is not a performed one.
     if (action_handler_) {
         return action_handler_(data_.id, action_name, params);
-    }
-    for (const auto& a : data_.actions) {
-        if (a.name == action_name) {
-            return true;
-        }
     }
     return false;
 }

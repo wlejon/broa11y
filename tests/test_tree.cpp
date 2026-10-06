@@ -109,6 +109,13 @@ int main() {
     CHECK_EQ(dfs_order[2], 3u);
     CHECK_EQ(dfs_order[3], 4u);
 
+    // 9b. Reparenting refuses a missing parent and a cycle, and changes nothing
+    CHECK(!tree.reparent_node(2, 999));
+    CHECK(!tree.reparent_node(2, 3));  // 3 is under 2
+    CHECK(!tree.reparent_node(1, 1));
+    CHECK_EQ(panel->parent_id(), 1u);
+    CHECK_EQ(window->child_count(), 1u);
+
     // 10. Test Removal
     tree.remove_node(2); // Should remove panel and both buttons
     CHECK_EQ(tree.node_count(), 1u);
@@ -117,5 +124,5 @@ int main() {
     CHECK_EQ(tree.get_node(4), nullptr);
     CHECK_EQ(window->child_count(), 0u);
 
-    return check::finish("test_tree");
+    return bstest::finish("test_tree");
 }

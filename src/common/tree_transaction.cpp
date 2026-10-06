@@ -44,9 +44,16 @@ void Tree::rollback_transaction() {
 
     if (!transaction_backup_) return;
 
-    // Erase nodes created during the transaction
+    // Erase the nodes the transaction created, then bring back the ones it
+    // removed (a node both created and removed in it is simply dropped).
     for (NodeId created_id : transaction_backup_->created_node_ids) {
         nodes_.erase(created_id);
+    }
+    for (auto& removed : transaction_backup_->removed_nodes) {
+        NodeId rid = removed->id();
+        if (transaction_backup_->node_data.contains(rid) && !nodes_.contains(rid)) {
+            nodes_[rid] = std::move(removed);
+        }
     }
 
     // Restore root and focus

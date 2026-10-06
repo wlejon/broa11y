@@ -5,18 +5,29 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <vector>
 
 namespace broa11y {
 
 struct WinBridgeConfig {
     std::string app_name = "bro";
+    // The HWND whose client area the tree describes. Required: UI Automation
+    // finds providers through the window's WM_GETOBJECT, and node bounds are
+    // read as client-area pixels of this window.
+    void* hwnd = nullptr;
 };
 
+// UI Automation provider. initialize() must run on the thread that owns the
+// window, with that thread either uninitialized for COM or in a
+// single-threaded apartment; every provider call then arrives on that thread
+// through its message loop, so pumping messages is what answers clients.
+// process_events() pumps nothing itself and only exists for the interface.
 class WinBridge : public Bridge {
 public:
     explicit WinBridge(WinBridgeConfig config = {});
     ~WinBridge() override;
+
+    WinBridge(const WinBridge&) = delete;
+    WinBridge& operator=(const WinBridge&) = delete;
 
     bool initialize(Tree* tree) override;
     void shutdown() override;
@@ -24,15 +35,7 @@ public:
     void process_events() override;
     [[nodiscard]] std::string_view name() const noexcept override { return "UI Automation (Windows)"; }
     [[nodiscard]] bool is_active() const noexcept override;
-
-    // Test / Inspection hooks
-    [[nodiscard]] size_t emitted_event_count() const noexcept;
-    [[nodiscard]] std::vector<std::string> get_emitted_event_names() const;
-    void clear_emitted_events();
-
-    // Query UIA properties on a node provider
-    [[nodiscard]] std::string query_provider_property(NodeId node_id, int32_t property_id) const;
-    bool execute_provider_action(NodeId node_id, int32_t pattern_id, std::string_view action_name);
+    [[nodiscard]] std::string last_error() const override;
 
 private:
     class Impl;

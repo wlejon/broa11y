@@ -174,6 +174,10 @@ bool Tree::remove_node(NodeId id) {
     }
 
     notify_node_removed(id, parent_id, old_index);
+    if (in_transaction_ && transaction_backup_) {
+        // Keep the node (and its action handler) alive: a rollback puts it back.
+        transaction_backup_->removed_nodes.push_back(std::move(it->second));
+    }
     nodes_.erase(it);
     return true;
 }
@@ -182,6 +186,15 @@ bool Tree::reparent_node(NodeId id, NodeId new_parent_id, size_t index) {
     Node* node = get_node(id);
     if (!node) return false;
     if (id == new_parent_id) return false;
+    if (new_parent_id != kInvalidNodeId) {
+        // The new parent must exist and must not sit under the node: that
+        // would make a cycle no traversal returns from.
+        const Node* p = get_node(new_parent_id);
+        if (!p) return false;
+        for (; p; p = get_node(p->parent_id())) {
+            if (p->id() == id) return false;
+        }
+    }
 
     NodeId old_parent_id = node->parent_id();
     if (old_parent_id != kInvalidNodeId) {

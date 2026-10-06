@@ -19,6 +19,12 @@ struct TerminalLine {
     bool wrapped = false; // true if this line is a soft wrap continuation of previous line
 };
 
+// Exposes a terminal grid as one text node. Rows hold UTF-8; a column is a
+// character (code point) index within its row. Every offset this class takes
+// or returns, like the node's caret and selection, is a UTF-8 byte offset into
+// get_full_text(); character_count() counts characters. The bridges convert to
+// what each platform counts (characters on AT-SPI, UTF-16 units on UIA and
+// NSAccessibility).
 class TerminalAccessibility {
 public:
     TerminalAccessibility();

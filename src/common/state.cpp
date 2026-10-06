@@ -117,7 +117,12 @@ std::pair<uint32_t, uint32_t> StateSet::to_atspi_state_bitmask() const {
     if (has(State::Collapsed)) set_atspi_bit(5);
     if (has(State::Defunct)) set_atspi_bit(6);
     if (has(State::Editable)) set_atspi_bit(7);
-    if (has(State::Sensitive) || !has(State::Disabled)) set_atspi_bit(8); // ATSPI_STATE_ENABLED
+    // AT-SPI has no "disabled": a usable widget is ENABLED and SENSITIVE, and
+    // Orca reports anything lacking them as unavailable.
+    if (!has(State::Disabled)) {
+        set_atspi_bit(8);   // ATSPI_STATE_ENABLED
+        set_atspi_bit(24);  // ATSPI_STATE_SENSITIVE
+    }
     if (has(State::Expanded)) set_atspi_bit(10);
     if (has(State::Focusable)) set_atspi_bit(11);
     if (has(State::Focused)) set_atspi_bit(12);
@@ -127,7 +132,7 @@ std::pair<uint32_t, uint32_t> StateSet::to_atspi_state_bitmask() const {
     if (has(State::MultiSelectable)) set_atspi_bit(18);
     if (has(State::Selectable)) set_atspi_bit(22);
     if (has(State::Selected)) set_atspi_bit(23);
-    if (has(State::Sensitive)) set_atspi_bit(24);
+    if (has(State::Sensitive) && !has(State::Disabled)) set_atspi_bit(24);
     if (has(State::Showing)) set_atspi_bit(25);
     if (has(State::SingleLine)) set_atspi_bit(26);
     if (has(State::Transient)) set_atspi_bit(28);

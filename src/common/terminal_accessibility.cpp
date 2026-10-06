@@ -1,6 +1,7 @@
 #include "broa11y/terminal.h"
 #include "broa11y/node.h"
 #include "broa11y/tree.h"
+#include "common/text_util.h"
 
 #include <algorithm>
 
@@ -189,7 +190,7 @@ void TerminalAccessibility::announce(std::string_view message, AnnouncementPrior
 
 int32_t TerminalAccessibility::character_count() const noexcept {
     rebuild_cache();
-    return static_cast<int32_t>(cached_full_text_.size());
+    return text::TextIndex(cached_full_text_).size();
 }
 
 std::string TerminalAccessibility::get_full_text() const {
@@ -212,7 +213,13 @@ std::pair<int32_t, int32_t> TerminalAccessibility::offset_to_pos(int32_t offset)
 
     auto it = std::upper_bound(line_start_offsets_.begin(), line_start_offsets_.end(), offset);
     size_t line_idx = static_cast<size_t>(std::distance(line_start_offsets_.begin(), it) - 1);
-    int32_t col = offset - line_start_offsets_[line_idx];
+    // The column counts characters, not bytes, from the row's start.
+    const std::string& line = lines_[line_idx].text;
+    int32_t byte_in_line = offset - line_start_offsets_[line_idx];
+    if (byte_in_line > static_cast<int32_t>(line.size())) {
+        byte_in_line = static_cast<int32_t>(line.size());
+    }
+    int32_t col = text::TextIndex(line).cp_from_byte(byte_in_line);
     return {static_cast<int32_t>(line_idx), col};
 }
 
@@ -224,10 +231,9 @@ int32_t TerminalAccessibility::pos_to_offset(int32_t row, int32_t col) const noe
         return static_cast<int32_t>(cached_full_text_.size());
     }
 
+    // Columns are characters; past the row's end clamps to the end.
     int32_t base = line_start_offsets_[urow];
-    int32_t line_len = static_cast<int32_t>(lines_[urow].text.size());
-    int32_t offset = base + (col < line_len ? col : line_len);
-    return offset;
+    return base + text::TextIndex(lines_[urow].text).byte_from_cp(col < 0 ? 0 : col);
 }
 
 void TerminalAccessibility::rebuild_cache() const {

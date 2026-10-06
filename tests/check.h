@@ -1,88 +1,106 @@
+// Minimal test harness: checks are real code paths in every configuration
+// (no assert()), failures are counted and reported, and main() returns
+// nonzero when anything failed. REQUIRE stops the test at once (a check later
+// code depends on). skip() exits 77 (ctest SKIP_RETURN_CODE) with the reason.
 #pragma once
 
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <sstream>
 #include <string>
-#include <string_view>
+#include <thread>
 #include <type_traits>
-#include <utility>
 
-namespace check {
+namespace bstest {
 
-inline int g_failures = 0;
-inline int g_checks = 0;
-
-inline std::string escape(std::string_view s) {
-    std::string out;
-    for (unsigned char c : s) {
-        if (c == 0x1b) out += "\\e";
-        else if (c == '\r') out += "\\r";
-        else if (c == '\n') out += "\\n";
-        else if (c == '\a') out += "\\a";
-        else if (c < 0x20 || c == 0x7f) {
-            char buf[8];
-            std::snprintf(buf, sizeof(buf), "\\x%02x", c);
-            out += buf;
-        } else {
-            out.push_back(static_cast<char>(c));
-        }
-    }
-    return out;
-}
-
-inline std::string show(const std::string& s) { return "\"" + escape(s) + "\""; }
-inline std::string show(std::string_view s) { return show(std::string(s)); }
-inline std::string show(const char* s) { return show(std::string(s ? s : "")); }
-inline std::string show(bool b) { return b ? "true" : "false"; }
-inline std::string show(std::nullptr_t) { return "nullptr"; }
-
-template <class T>
-std::string show(T* ptr) {
-    if (!ptr) return "nullptr";
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%p", static_cast<const void*>(ptr));
-    return buf;
-}
-
-template <class T>
-std::string show(const T& v) {
-    if constexpr (std::is_enum_v<T>) {
-        return std::to_string(static_cast<long long>(v));
-    } else {
-        return std::to_string(v);
-    }
-}
-
-template <class A, class B>
-std::string show(const std::pair<A, B>& p) {
-    return "(" + show(p.first) + ", " + show(p.second) + ")";
+inline int& failures() {
+    static int n = 0;
+    return n;
 }
 
 inline void fail(const char* file, int line, const std::string& what) {
-    ++g_failures;
-    std::printf("FAIL %s:%d: %s\n", file, line, what.c_str());
-    std::fflush(stdout);
+    ++failures();
+    std::fprintf(stderr, "FAIL %s:%d: %s\n", file, line, what.c_str());
+    std::fflush(stderr);
 }
 
-template <class A, class B>
-void eq(const A& a, const B& b, const char* ea, const char* eb, const char* file, int line) {
-    ++g_checks;
-    if (!(a == b)) {
-        fail(file, line, std::string(ea) + " == " + eb + "\n     got  " + show(a) + "\n     want " + show(b));
+template <class T>
+void describe_value(std::ostringstream& s, const T& v) {
+    if constexpr (std::is_enum_v<T>) {
+        s << static_cast<long long>(v);
+    } else if constexpr (std::is_same_v<std::decay_t<T>, const char*> || std::is_same_v<std::decay_t<T>, char*>) {
+        s << '\'' << (v ? v : "(null)") << '\'';
+    } else if constexpr (std::is_pointer_v<T> || std::is_null_pointer_v<T>) {
+        s << static_cast<const void*>(v);
+    } else if constexpr (requires { s << v; }) {
+        s << '\'' << v << '\'';
+    } else {
+        s << "(unprintable)";
     }
 }
 
-inline int finish(const char* name) {
-    std::printf("[%s] %d checks, %d failed\n", name, g_checks, g_failures);
-    return g_failures == 0 ? 0 : 1;
+template <class A, class B>
+std::string describe(const char* ea, const char* eb, const A& a, const B& b) {
+    std::ostringstream s;
+    s << ea << " == " << eb << " (got ";
+    describe_value(s, a);
+    s << " vs ";
+    describe_value(s, b);
+    s << ")";
+    return s.str();
 }
 
-} // namespace check
+inline int finish(const char* name) {
+    if (failures() == 0) {
+        std::printf("[%s] PASSED\n", name);
+        return 0;
+    }
+    std::printf("[%s] FAILED (%d check%s)\n", name, failures(), failures() == 1 ? "" : "s");
+    return 1;
+}
 
-#define CHECK(cond)                                                           \
-    do {                                                                      \
-        ++::check::g_checks;                                                  \
-        if (!(cond)) ::check::fail(__FILE__, __LINE__, "CHECK(" #cond ")");     \
+[[noreturn]] inline void abort_test(const char* file, int line, const std::string& what) {
+    fail(file, line, "required: " + what);
+    std::printf("[stopped] a required check failed\n");
+    std::fflush(stdout);
+    std::exit(1);
+}
+
+[[noreturn]] inline void skip(const char* name, const std::string& why) {
+    std::printf("[%s] SKIPPED: %s\n", name, why.c_str());
+    std::fflush(stdout);
+    std::exit(77);
+}
+
+inline bool wait_until(const std::function<bool()>& pred, std::chrono::milliseconds timeout,
+                       std::chrono::milliseconds step = std::chrono::milliseconds(10)) {
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (true) {
+        if (pred()) return true;
+        if (std::chrono::steady_clock::now() >= deadline) return false;
+        std::this_thread::sleep_for(step);
+    }
+}
+
+}  // namespace bstest
+
+#define CHECK(cond)                                                    \
+    do {                                                               \
+        if (!(cond)) ::bstest::fail(__FILE__, __LINE__, #cond);        \
     } while (0)
 
-#define CHECK_EQ(a, b) ::check::eq((a), (b), #a, #b, __FILE__, __LINE__)
-#define CHECK_NE(a, b) CHECK(!((a) == (b)))
+#define CHECK_EQ(a, b)                                                                 \
+    do {                                                                               \
+        auto check_a_ = (a);                                                           \
+        auto check_b_ = (b);                                                           \
+        if (!(check_a_ == check_b_))                                                   \
+            ::bstest::fail(__FILE__, __LINE__,                                         \
+                           ::bstest::describe(#a, #b, check_a_, check_b_));            \
+    } while (0)
+
+#define REQUIRE(cond)                                                  \
+    do {                                                               \
+        if (!(cond)) ::bstest::abort_test(__FILE__, __LINE__, #cond);  \
+    } while (0)

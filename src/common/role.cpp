@@ -102,61 +102,66 @@ Role string_to_role(std::string_view str) {
 
 uint32_t role_to_atspi_role(Role role) {
     switch (role) {
-        case Role::Application: return 2;
-        case Role::Window: return 75;
-        case Role::Dialog: return 14;
-        case Role::Alert: return 1;
-        case Role::Button: return 7;
-        case Role::CheckBox: return 8;
-        case Role::RadioButton: return 45;
-        case Role::TextInput: return 18; // Entry
-        case Role::Terminal: return 64; // Terminal
-        case Role::Label: return 34; // Label
-        case Role::Link: return 36; // Link
-        case Role::List: return 37; // List
-        case Role::ListItem: return 38; // ListItem
-        case Role::Menu: return 39; // Menu
-        case Role::MenuItem: return 40; // MenuItem
-        case Role::MenuBar: return 41; // MenuBar
-        case Role::Slider: return 54; // Slider
-        case Role::ProgressBar: return 44; // ProgressBar
-        case Role::ScrollBar: return 49; // ScrollBar
-        case Role::Tree: return 68; // Tree
-        case Role::TreeItem: return 69; // TreeItem
-        case Role::Table: return 61; // Table
-        case Role::TableCell: return 62; // TableCell
-        case Role::TableRow: return 63; // TableRow
-        case Role::TableColumn: return 64; // TableColumn
-        case Role::Group: return 20; // Filler
-        case Role::Panel: return 42; // Panel
-        case Role::Tab: return 43; // PageTab
-        case Role::TabList: return 44; // PageTabList
-        case Role::ToolBar: return 66; // ToolBar
-        case Role::ToolTip: return 67; // ToolTip
-        case Role::Separator: return 53; // Separator
-        case Role::ComboBox: return 10; // ComboBox
-        case Role::SpinButton: return 55; // SpinButton
-        case Role::StatusBar: return 56; // StatusBar
-        case Role::Heading: return 27; // Heading
-        case Role::Section: return 51; // Section
-        case Role::Canvas: return 6; // Canvas
-        case Role::Image: return 29; // Icon / Image
-        case Role::ScrollPane: return 50; // ScrollPane
-        case Role::Document: return 78; // Document
-        default: return 0; // Invalid
+        // AtspiRole values (at-spi2-core atspi-constants.h).
+        case Role::Application: return 75;  // APPLICATION
+        case Role::Window: return 23;       // FRAME: a top-level window, as GTK and Qt report it
+        case Role::Dialog: return 16;       // DIALOG
+        case Role::Alert: return 2;         // ALERT
+        case Role::Button: return 43;       // BUTTON
+        case Role::CheckBox: return 7;      // CHECK_BOX
+        case Role::RadioButton: return 44;  // RADIO_BUTTON
+        case Role::TextInput: return 79;    // ENTRY
+        case Role::Terminal: return 60;     // TERMINAL
+        case Role::Label: return 29;        // LABEL
+        case Role::Link: return 88;         // LINK
+        case Role::List: return 31;         // LIST
+        case Role::ListItem: return 32;     // LIST_ITEM
+        case Role::Menu: return 33;         // MENU
+        case Role::MenuItem: return 35;     // MENU_ITEM
+        case Role::MenuBar: return 34;      // MENU_BAR
+        case Role::Slider: return 51;       // SLIDER
+        case Role::ProgressBar: return 42;  // PROGRESS_BAR
+        case Role::ScrollBar: return 48;    // SCROLL_BAR
+        case Role::Tree: return 65;         // TREE
+        case Role::TreeItem: return 91;     // TREE_ITEM
+        case Role::Table: return 55;        // TABLE
+        case Role::TableCell: return 56;    // TABLE_CELL
+        case Role::TableRow: return 90;     // TABLE_ROW
+        case Role::TableColumn: return 57;  // TABLE_COLUMN_HEADER
+        case Role::Group: return 99;        // GROUPING
+        case Role::Panel: return 39;        // PANEL
+        case Role::Tab: return 37;          // PAGE_TAB
+        case Role::TabList: return 38;      // PAGE_TAB_LIST
+        case Role::TabPanel: return 39;     // PANEL
+        case Role::ToolBar: return 63;      // TOOL_BAR
+        case Role::ToolTip: return 64;      // TOOL_TIP
+        case Role::Separator: return 50;    // SEPARATOR
+        case Role::ComboBox: return 11;     // COMBO_BOX
+        case Role::SpinButton: return 52;   // SPIN_BUTTON
+        case Role::StatusBar: return 54;    // STATUS_BAR
+        case Role::Heading: return 83;      // HEADING
+        case Role::Section: return 85;      // SECTION
+        case Role::Canvas: return 6;        // CANVAS
+        case Role::Image: return 27;        // IMAGE
+        case Role::ScrollPane: return 49;   // SCROLL_PANE
+        case Role::Document: return 82;     // DOCUMENT_FRAME
+        case Role::Unknown:
+        case Role::Count: return 67;        // UNKNOWN
     }
+    return 67;
 }
 
 std::string_view role_to_atspi_name(Role role) {
     switch (role) {
         case Role::Application: return "application";
-        case Role::Window: return "window";
+        // The names libatspi's atspi_role_get_name() gives each AtspiRole above.
+        case Role::Window: return "frame";
         case Role::Dialog: return "dialog";
         case Role::Alert: return "alert";
-        case Role::Button: return "push button";
+        case Role::Button: return "button";
         case Role::CheckBox: return "check box";
         case Role::RadioButton: return "radio button";
-        case Role::TextInput: return "text";
+        case Role::TextInput: return "entry";
         case Role::Terminal: return "terminal";
         case Role::Label: return "label";
         case Role::Link: return "link";
@@ -173,8 +178,8 @@ std::string_view role_to_atspi_name(Role role) {
         case Role::Table: return "table";
         case Role::TableCell: return "table cell";
         case Role::TableRow: return "table row";
-        case Role::TableColumn: return "table column";
-        case Role::Group: return "panel";
+        case Role::TableColumn: return "table column header";
+        case Role::Group: return "grouping";
         case Role::Panel: return "panel";
         case Role::Tab: return "page tab";
         case Role::TabList: return "page tab list";
@@ -189,7 +194,8 @@ std::string_view role_to_atspi_name(Role role) {
         case Role::Canvas: return "canvas";
         case Role::Image: return "image";
         case Role::ScrollPane: return "scroll pane";
-        case Role::Document: return "document";
+        case Role::Document: return "document frame";
+        case Role::TabPanel: return "panel";
         default: return "unknown";
     }
 }
@@ -227,6 +233,12 @@ uint32_t role_to_uia_control_type(Role role) {
         case Role::Window: return 50032; // UIA_WindowControlTypeId
         case Role::Dialog: return 50032; // UIA_WindowControlTypeId
         case Role::Table: return 50036; // UIA_TableControlTypeId
+        case Role::TableRow: return 50029; // UIA_DataItemControlTypeId
+        case Role::TableCell: return 50029; // UIA_DataItemControlTypeId
+        case Role::TableColumn: return 50035; // UIA_HeaderItemControlTypeId
+        case Role::Separator: return 50038; // UIA_SeparatorControlTypeId
+        case Role::Heading: return 50020; // UIA_TextControlTypeId (level in the heading-level property)
+        case Role::Section: return 50026; // UIA_GroupControlTypeId
         default: return 50033; // UIA_PaneControlTypeId
     }
 }
@@ -263,6 +275,12 @@ std::string_view role_to_uia_control_name(Role role) {
         case Role::Document: return "Document";
         case Role::Window: return "Window";
         case Role::Table: return "Table";
+        case Role::TableRow: return "DataItem";
+        case Role::TableCell: return "DataItem";
+        case Role::TableColumn: return "HeaderItem";
+        case Role::Separator: return "Separator";
+        case Role::Heading: return "Text";
+        case Role::Section: return "Group";
         default: return "Pane";
     }
 }

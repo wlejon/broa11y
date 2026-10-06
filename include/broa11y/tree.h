@@ -124,6 +124,7 @@ private:
         NodeId root_id = kInvalidNodeId;
         NodeId focused_node_id = kInvalidNodeId;
         std::vector<NodeId> created_node_ids;
+        std::vector<std::unique_ptr<Node>> removed_nodes;
     };
 
     NodeId root_id_ = kInvalidNodeId;
