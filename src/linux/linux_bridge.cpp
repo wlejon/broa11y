@@ -235,7 +235,7 @@ std::string LinuxBridge::Impl::find_bus_address() {
                  "); set DBUS_SESSION_BUS_ADDRESS or AT_SPI_BUS_ADDRESS";
         return {};
     }
-    sd_bus_error err = SD_BUS_ERROR_NULL;
+    sd_bus_error err{};  // SD_BUS_ERROR_NULL, without its C compound literal
     sd_bus_message* reply = nullptr;
     std::string address;
     r = sd_bus_call_method(session, "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress", &err, &reply, "");
