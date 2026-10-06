@@ -109,7 +109,10 @@ elseif(APPLE)
 endif()
 
 # --- Standalone Bronze JavaScript API ---
-option(BROA11Y_ENABLE_API "Build Bronze JavaScript API" ON)
+# On by default only when broa11y is the top-level project. A library that
+# consumes broa11y then never needs bronze for it; bro forces
+# BROA11Y_ENABLE_API ON itself when it wants the binding.
+option(BROA11Y_ENABLE_API "Build Bronze JavaScript API" ${PROJECT_IS_TOP_LEVEL})
 if(BROA11Y_ENABLE_API)
     if(NOT TARGET bronze_runtime_shared)
         set(BRONZE_BUILD_SHARED_RUNTIME ON CACHE BOOL "" FORCE)
