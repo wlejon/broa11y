@@ -102,7 +102,9 @@ int main(int argc, char** argv) {
     REQUIRE(atspi_accessible_get_child_count(frame, nullptr) == 5);
 
     const char* names[] = {"Submit", "Wrap lines", "Command", "Volume", "Status"};
-    const AtspiRole roles[] = {ATSPI_ROLE_BUTTON, ATSPI_ROLE_CHECK_BOX, ATSPI_ROLE_ENTRY, ATSPI_ROLE_SLIDER,
+    // ATSPI_ROLE_PUSH_BUTTON, not ATSPI_ROLE_BUTTON: at-spi2-core 2.52 (Ubuntu 24.04) only has the old name, and
+    // newer releases keep it as an alias of the same value (43).
+    const AtspiRole roles[] = {ATSPI_ROLE_PUSH_BUTTON,ATSPI_ROLE_CHECK_BOX, ATSPI_ROLE_ENTRY, ATSPI_ROLE_SLIDER,
                                ATSPI_ROLE_LABEL};
     AtspiAccessible* kid[5] = {};
     for (int i = 0; i < 5; ++i) {
