@@ -58,9 +58,11 @@ int main() {
     CHECK(ev::isObject(a11y.get()));
     std::cout << "  Mounted bro.a11y successfully." << std::endl;
 
+    CHECK(ev::isBool(ev::getProperty(a11y.get(), "available")));
+
     // 2. Verify all core methods exist on bro.a11y
     const char* methods[] = {
-        "available", "isAvailable", "tick", "shutdown",
+        "isAvailable", "tick", "shutdown",
         "announce", "getRootNode", "getNode", "createNode", "removeNode",
         "reparent", "setFocus", "clearFocus", "getFocusedNode", "hitTest",
         "findNodesByRole", "findNodesByName", "beginTransaction", "commitTransaction",
@@ -75,8 +77,8 @@ int main() {
         std::cout << "  Found bro.a11y." << m << std::endl;
     }
 
-    // 3. Test available()
-    CHECK_JS_OK("typeof bro.a11y.available() === 'boolean'");
+    // 3. Test available
+    CHECK_JS_OK("typeof bro.a11y.available === 'boolean'");
     CHECK_JS_OK("typeof bro.a11y.isAvailable() === 'boolean'");
 
     // 4. Test root node inspection

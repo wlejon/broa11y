@@ -331,10 +331,7 @@ void installA11y() {
     ev::Persistent a11yObj(ensureBroA11y());
     ObjectBuilder a11y(a11yObj.get());
 
-    // bro.a11y.available() -> boolean
-    a11y.def("available", 0, [](Value, std::span<const Value>) -> Value {
-        return ev::fromBool(available());
-    });
+    a11y.set("available", available());
     a11y.def("isAvailable", 0, [](Value, std::span<const Value>) -> Value {
         return ev::fromBool(available());
     });
