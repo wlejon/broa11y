@@ -123,49 +123,20 @@ ctest --test-dir build -C Release --output-on-failure
 CMake options:
 - `BROA11Y_BUILD_TESTS`: Build tests (default `ON` when top-level, `OFF` when included via `add_subdirectory`).
 - `BROA11Y_COVERAGE`: Instrument the build for gcov coverage (GCC/Clang).
-- `BROA11Y_ENABLE_API`: Build the standalone Bronze JavaScript API (default `ON`; searches `../bronze` or `-DBRONZE_DIR=<path>`).
+- `BROA11Y_ENABLE_API`: Build the standalone Bronze JavaScript API (default `ON` when top-level). bronze (with brass) comes from `../bronze` beside the top-level project, else the pinned commit, fetched at configure (`cmake/bro_deps.cmake`), so a plain `git clone` builds.
 
 ### Consuming broa11y
 
-Downstream projects consume the `broa11y::broa11y` CMake target. Following the
-ecosystem dependency convention, consumers resolve `broa11y` as a sibling
-checkout or a vendored submodule:
-
-#### Sibling layout
-
-When `broa11y` is checked out beside your project at `../broa11y`:
+Downstream projects consume the `broa11y::broa11y` CMake target. Ecosystem
+consumers pin it with `bro_dependency()` (`cmake/bro_deps.cmake`): a target the
+outer project already added wins, else a `../broa11y` working tree beside the
+top-level project, else the pinned commit, fetched at configure
+(`-DFETCHCONTENT_SOURCE_DIR_BROA11Y=<path>` points at another tree):
 
 ```cmake
-if(NOT TARGET broa11y::broa11y)
-    if(DEFINED BROA11Y_DIR AND EXISTS "${BROA11Y_DIR}/CMakeLists.txt")
-        # Explicit override supplied via -DBROA11Y_DIR=<path>
-    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../broa11y/CMakeLists.txt")
-        set(BROA11Y_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../broa11y" CACHE PATH "broa11y source tree")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/../broa11y/CMakeLists.txt")
-        set(BROA11Y_DIR "${CMAKE_SOURCE_DIR}/../broa11y" CACHE PATH "broa11y source tree")
-    endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/bro_deps.cmake)
+bro_dependency(broa11y GITHUB wlejon/broa11y REF <40-hex sha>)
 
-    if(NOT BROA11Y_DIR OR NOT EXISTS "${BROA11Y_DIR}/CMakeLists.txt")
-        message(FATAL_ERROR "broa11y not found beside this repository or at BROA11Y_DIR")
-    endif()
-
-    add_subdirectory("${BROA11Y_DIR}" "${CMAKE_BINARY_DIR}/broa11y-build" EXCLUDE_FROM_ALL)
-endif()
-```
-
-#### Submodule layout
-
-When `broa11y` is vendored as a git submodule under `third_party/broa11y`:
-
-```cmake
-if(NOT TARGET broa11y::broa11y)
-    add_subdirectory(third_party/broa11y EXCLUDE_FROM_ALL)
-endif()
-```
-
-#### Linking
-
-```cmake
 target_link_libraries(your_target PRIVATE broa11y::broa11y)
 ```
 

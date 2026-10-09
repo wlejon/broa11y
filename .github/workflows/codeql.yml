@@ -41,8 +41,6 @@ jobs:
         with:
           path: broa11y
 
-      - uses: wlejon/bronze/.github/actions/checkout-toolchain@main
-
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
         run: |
