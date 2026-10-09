@@ -12,7 +12,7 @@ concurrency:
 
 # The broa11y library has no siblings. Its JavaScript binding (broa11y_api,
 # on whenever broa11y is the top-level project) binds bronze, which, with
-# brass, comes from the commit CMakeLists.txt pins (cmake/bro_deps.cmake),
+# brass, comes from the head of its main branch (cmake/bro_deps.cmake),
 # fetched at configure: every job builds a plain clone.
 #
 # Each bridge is checked by the platform's own client: on Linux a libatspi
