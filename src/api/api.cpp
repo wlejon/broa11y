@@ -179,6 +179,11 @@ void setTree(std::shared_ptr<broa11y::Tree> tree) {
         ensureTreeListener(g_custom_tree.get());
     } else if (g_default_tree) {
         ensureTreeListener(g_default_tree.get());
+    } else {
+        // The tree that was set is the caller's to free once it is unset:
+        // the listener comes off it now, not on the next setTree, which
+        // would reach it through a dangling pointer.
+        removeTreeListener();
     }
 }
 

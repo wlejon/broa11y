@@ -5,7 +5,9 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
 
 #define CHECK(cond)                                                            \
     do {                                                                       \
@@ -57,6 +59,30 @@ int main() {
     ev::Persistent a11y(ev::getProperty(g.value, "a11y"));
     CHECK(ev::isObject(a11y.get()));
     std::cout << "  Mounted bro.a11y successfully." << std::endl;
+
+    // 1b. A host's own trees, set and unset in turn before there is a default
+    // tree (a page reload): unsetting one takes the listener off it. Left on,
+    // the next setTree removed it through the pointer to a tree the host had
+    // freed by then; here the trees are kept, and one still heard is the bug.
+    {
+        CHECK_JS_OK("(globalThis.__stale = 0, bro.a11y.addEventListener('announce', () => { globalThis.__stale++; }), true)");
+        std::vector<std::shared_ptr<broa11y::Tree>> unset;
+        for (int i = 0; i < 3; ++i) {
+            auto tree = std::make_shared<broa11y::Tree>();
+            broa11y::api::setTree(tree);
+            broa11y::api::setTree(nullptr);
+            unset.push_back(tree);
+        }
+        for (auto& tree : unset) tree->announce("unset tree");
+        CHECK_JS_OK("(bro.a11y.tick(), globalThis.__stale === 0 || 'heard ' + globalThis.__stale)");
+        // And the tree that is set is heard.
+        auto set = std::make_shared<broa11y::Tree>();
+        broa11y::api::setTree(set);
+        set->announce("set tree");
+        CHECK_JS_OK("(bro.a11y.tick(), globalThis.__stale === 1 || 'heard ' + globalThis.__stale)");
+        broa11y::api::setTree(nullptr);
+        std::cout << "  Unset host trees are not listened to." << std::endl;
+    }
 
     CHECK(ev::isBool(ev::getProperty(a11y.get(), "available")));
 
